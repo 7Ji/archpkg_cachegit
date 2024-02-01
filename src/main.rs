@@ -7,6 +7,17 @@ use url::Url;
 fn main() {
     let gmr = args().nth(1).expect("Prefix of git-mirrorer must be declared as the first argument");
     let pkgbuild = pkgbuild::parse_one(Some("PKGBUILD")).unwrap();
+    println!("If caching failed, make sure you have the following repos configured in your 7Ji/git-mirrorer config:");
+    for source in pkgbuild.sources.iter() {
+        if let SourceProtocol::Git { fragment: _, signed: _ } = source.protocol {
+            print!("  - {}", &source.url);
+            if source.url.ends_with(".git") {
+                println!()
+            } else {
+                println!(".git")
+            }
+        }
+    }
     for source in pkgbuild.sources.iter() {
         let fetchspec = 
             if let SourceProtocol::Git { fragment, signed: _ } = &source.protocol {
@@ -34,7 +45,7 @@ fn main() {
                 create_dir(repo.join(suffix)).expect("Failed to create git repo subdir");
             }
             let mut head = File::create(repo.join("HEAD")).expect("Failed to create HEAD");
-            head.write_all("ref: refs/heads/*\n".as_bytes()).expect("Failed to write to HEAD");
+            head.write_all("ref: refs/heads/master\n".as_bytes()).expect("Failed to write to HEAD");
             let mut config = File::create(repo.join("config")).expect("Failed to create config");
             write!(config, "\
                 [core]\n\
@@ -69,6 +80,5 @@ fn main() {
         {
             panic!("Git process failed")
         }
-        
     }
 }
