@@ -1,6 +1,6 @@
 use std::path::Path;
 use git2::Repository;
-use pkgbuild::{GitSourceFragment, Source, SourceProtocol};
+use pkgbuild::{GitSourceFragment, Pkgbuild, Source, SourceProtocol};
 use url::Url;
 use clap::Parser;
 
@@ -83,21 +83,30 @@ fn cache_source<S: Into<String>>(source: &Source, allrefs: bool, gmr: S) {
     }
 }
 
+fn print_config(pkgbuild: &Pkgbuild) {
+    let mut repos = Vec::new();
+    for source in pkgbuild.sources.iter() {
+        if let SourceProtocol::Git { fragment: _, signed: _ } = source.protocol {
+            let mut repo = source.url.clone();
+            if ! source.url.ends_with(".git") {
+                repo.push_str(".git")   
+            }
+            repos.push(repo)
+        }
+    }
+    repos.sort_unstable();
+    repos.dedup();
+    println!("repos:");
+    for repo in repos.iter() {
+        println!("  - {}", repo)
+    }
+}
+
 fn main() {
     let arg = Arg::parse();
     let pkgbuild = pkgbuild::parse_one(Some("PKGBUILD")).unwrap();
     if arg.prconf {
-        println!("repos:");
-        for source in pkgbuild.sources.iter() {
-            if let SourceProtocol::Git { fragment: _, signed: _ } = source.protocol {
-                print!("  - {}", &source.url);
-                if source.url.ends_with(".git") {
-                    println!()
-                } else {
-                    println!(".git")
-                }
-            }
-        }
+        print_config(&pkgbuild);
         return
     }
     for source in pkgbuild.sources.iter() {
