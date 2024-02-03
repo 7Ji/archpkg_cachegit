@@ -1,5 +1,6 @@
-use std::{env::args, fs::{create_dir, File}, io::Write, path::Path, process::Command};
+use std::{env::args, fs::{create_dir, File}, io::Write, path::Path};
 
+use git2::Repository;
 use pkgbuild::{GitSourceFragment, SourceProtocol};
 
 use url::Url;
@@ -58,6 +59,7 @@ fn main() {
                 source.url
             ).expect("Failed to write to git config");
         }
+        let repo = Repository::open_bare(repo).expect("Failed to open git repo");
         let url = Url::parse(&source.url).expect("Failed to parse git source url");
         let mut gmr_url = gmr.clone();
         if let Some(domain) = url.domain() {
@@ -65,20 +67,16 @@ fn main() {
             gmr_url.push_str(domain);
         }
         gmr_url.push_str(url.path());
+        let mut remote = repo.remote_anonymous(&gmr_url).expect("Failed to create anonymous remote");
         println!("Caching git source '{}' from gmr '{}'", source.name, &gmr_url);
-        if ! Command::new("git")
-            .arg("--git-dir")
-            .arg(repo)
-            .arg("fetch")
-            .arg(&gmr_url)
-            .arg(format!("+refs/{}:refs/{}", fetchspec, fetchspec))
-            .spawn()
-            .expect("Failed to spawn git process")
-            .wait()
-            .expect("Failed to wait for git process")
-            .success() 
-        {
-            panic!("Git process failed")
+        remote.fetch(&[format!("+refs/{}:refs/{}", fetchspec, fetchspec)], None, None).expect("Failed to fetch from remote");
+        for head in remote.list().expect("Failed to list remote heads") {
+            if head.name() == "HEAD" {
+                if let Some(target) = head.symref_target() {
+                    repo.set_head(target).expect("Failed to update local HEAD");
+                }
+                break
+            }
         }
     }
 }
