@@ -42,7 +42,7 @@ fn main() {
             }
         } else {
             create_dir(repo).expect("Failed to create git repo dir");
-            for suffix in ["objects", "refs"] {
+            for suffix in ["objects", "objects/pack", "refs"] {
                 create_dir(repo.join(suffix)).expect("Failed to create git repo subdir");
             }
             let mut head = File::create(repo.join("HEAD")).expect("Failed to create HEAD");
