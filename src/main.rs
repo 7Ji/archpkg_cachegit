@@ -1,6 +1,6 @@
 use std::path::Path;
 use git2::Repository;
-use pkgbuild::{GitSourceFragment, Pkgbuild, Source, SourceProtocol};
+use pkgbuild::{Architecture, GitSourceFragment, Pkgbuild, Source, SourceProtocol};
 use url::Url;
 use clap::Parser;
 
@@ -12,8 +12,12 @@ struct Arg {
     #[arg(short, long)]
     /// Print a config to be used for 7Ji/git-mirrorer and early quit
     prconf: bool,
+    #[arg(short, long)]
     /// The prefix of a 7Ji/git-mirrorer instance, e.g. http://gmr.lan
     gmr: String,
+    #[arg(short, long)]
+    /// The architecture
+    arch: String,
 }
 
 fn fetchspec_from_source(source: &Source, allrefs: bool) -> String {
@@ -83,9 +87,10 @@ fn cache_source<S: Into<String>>(source: &Source, allrefs: bool, gmr: S) {
     }
 }
 
-fn print_config(pkgbuild: &Pkgbuild) {
+fn print_config(pkgbuild: &Pkgbuild, arch: &str) {
     let mut repos = Vec::new();
-    for source in pkgbuild.sources.iter() {
+    for source_with_checksum in pkgbuild.sources_with_checksums(Some(&Architecture::from(arch))).iter() {
+        let source = &source_with_checksum.source;
         if let SourceProtocol::Git { fragment: _, signed: _ } = source.protocol {
             let mut repo = source.url.clone();
             if ! source.url.ends_with(".git") {
@@ -106,10 +111,10 @@ fn main() {
     let arg = Arg::parse();
     let pkgbuild = pkgbuild::parse_one(Some("PKGBUILD")).unwrap();
     if arg.prconf {
-        print_config(&pkgbuild);
+        print_config(&pkgbuild, &arg.arch);
         return
     }
-    for source in pkgbuild.sources.iter() {
-        cache_source(source, arg.allrefs, &arg.gmr);
+    for source_with_checksum in pkgbuild.sources_with_checksums(Some(&Architecture::from(arg.arch.as_str()))).iter() {
+        cache_source(&source_with_checksum.source, arg.allrefs, &arg.gmr);
     }
 }
